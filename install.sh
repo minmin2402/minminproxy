@@ -22,6 +22,40 @@ show_menu() {
   read -p "Choose an option [1-5]: " choice
 }
 
+# Kiểm tra và cấu hình IPv6
+setup_ipv6() {
+  echo "Checking IPv6 configuration..."
+  local interface=$(ip -6 route | grep default | awk '{print $5}')
+  if [ -z "$interface" ]; then
+    echo "No IPv6 default route found. Configuring IPv6..."
+    interface=$(ip -o link show | awk -F': ' '{print $2}' | grep -E 'eth|ens' | head -n 1)
+
+    if [ -z "$interface" ]; then
+      echo "No valid network interface found. Exiting."
+      exit 1
+    fi
+
+    sudo tee /etc/netplan/99-custom-ipv6.yaml > /dev/null <<EOF
+network:
+  version: 2
+  ethernets:
+    $interface:
+      addresses:
+        - ${IP6}::7bc8:4000/64
+      gateway6: ${IP6}::1
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
+EOF
+
+    sudo netplan apply
+    echo "IPv6 configured successfully."
+  else
+    echo "IPv6 is already configured."
+  fi
+}
+
 # Cài đặt và cấu hình 3proxy
 install_3proxy() {
   # Kiểm tra và xóa file cấu hình nếu tồn tại
@@ -70,10 +104,25 @@ EOF
   cd $WORKDIR
 }
 
+# Mở cổng bằng iptables
+open_ports() {
+  local start_port=$1
+  local end_port=$2
+  echo "Opening ports $start_port to $end_port..."
+  sudo iptables -I INPUT -p tcp --dport $start_port:$end_port -j ACCEPT
+  sudo ip6tables -I INPUT -p tcp --dport $start_port:$end_port -j ACCEPT
+  sudo iptables-save > /etc/iptables/rules.v4
+  sudo ip6tables-save > /etc/iptables/rules.v6
+  echo "Ports $start_port to $end_port opened."
+}
+
 # Tạo proxy không yêu cầu xác thực
 generate_no_auth_proxy() {
   read -p "Enter the number of proxies to create: " num_proxies
   read -p "Enter the starting port: " start_port
+
+  end_port=$((start_port + num_proxies - 1))
+  open_ports $start_port $end_port
 
   for ((i=0; i<num_proxies; i++)); do
     port=$((start_port + i))
@@ -91,6 +140,9 @@ generate_auth_proxy() {
   read -p "Enter the password: " password
   read -p "Enter the number of proxies to create: " num_proxies
   read -p "Enter the starting port: " start_port
+
+  end_port=$((start_port + num_proxies - 1))
+  open_ports $start_port $end_port
 
   echo "users $username:CL:$password" >> $CONFIG_PATH
 
@@ -117,9 +169,9 @@ remove_all_proxies() {
 while true; do
   show_menu
   case $choice in
-    1) install_3proxy ;;
-    2) generate_no_auth_proxy ;;
-    3) generate_auth_proxy ;;
+    1) setup_ipv6; install_3proxy ;;
+    2) setup_ipv6; generate_no_auth_proxy ;;
+    3) setup_ipv6; generate_auth_proxy ;;
     4) remove_all_proxies ;;
     5) echo "Exiting..."; exit ;;
     *) echo "Invalid option. Please try again." ;;
