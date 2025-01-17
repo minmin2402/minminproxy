@@ -32,11 +32,12 @@ install_3proxy() {
 
   echo "Installing 3proxy..."
   sudo apt update && sudo apt install -y git build-essential nano iptables
+  cd $WORKDIR
   git clone https://github.com/z3apa3a/3proxy.git
   cd 3proxy
   make -f Makefile.Linux
   mkdir -p /usr/local/etc/3proxy/{bin,logs,stat}
-  cp 3proxy /usr/local/etc/3proxy/bin/
+  cp bin/3proxy /usr/local/etc/3proxy/bin/
   cp scripts/init.d/proxy.sh /etc/init.d/3proxy
   chmod +x /etc/init.d/3proxy
   echo "3proxy installed successfully."
