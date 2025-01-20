@@ -1,14 +1,5 @@
 #!/bin/sh
 
-# Cập nhật và cài đặt các gói cần thiết
-sudo apt update
-sudo apt install git build-essential make gcc g++ net-tools -y
-
-# Tải và cài đặt 3proxy
-git clone "https://github.com/z3APA3A/3proxy.git"
-cd 3proxy
-make -f Makefile.Linux || true
-sudo make install
 
 # Kiểm tra cài đặt 3proxy
 if [ ! -d /usr/local/3proxy ]; then
