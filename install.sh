@@ -10,6 +10,11 @@ cd 3proxy
 make -f Makefile.Linux
 sudo make install
 
+# Kiểm tra cài đặt 3proxy
+if [ ! -d /usr/local/3proxy ]; then
+    echo "Cài đặt 3proxy thất bại."
+    exit 1
+fi
 
 # Tạo tệp script kiểm tra và xóa proxy hết hạn
 cat <<'EOF' > /root/check_and_remove_expired_proxies.sh
@@ -54,12 +59,15 @@ EOF
 # Cấp quyền thực thi cho script
 chmod +x /root/check_and_remove_expired_proxies.sh
 
-# Tạo cronjob để kiểm tra proxy mỗi ngày
-(crontab -l 2>/dev/null; echo "0 0 * * * /bin/bash /root/check_and_remove_expired_proxies.sh") | crontab -
-
-
+# Kiểm tra script trước khi thêm cronjob
+if [ -f /root/check_and_remove_expired_proxies.sh ]; then
+    (crontab -l 2>/dev/null; echo "0 0 * * * /bin/bash /root/check_and_remove_expired_proxies.sh") | crontab -
+else
+    echo "Script kiểm tra proxy không tồn tại. Hủy thêm cronjob."
+fi
 
 # Khởi động lại 3proxy để áp dụng cấu hình
 systemctl restart 3proxy
+systemctl status 3proxy || echo "Dịch vụ 3proxy không khởi động được."
 
 echo "Cài đặt hoàn tất!"
